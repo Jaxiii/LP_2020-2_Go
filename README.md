@@ -6,7 +6,7 @@
 ##### Prof. Dr. Marcelo Ladeira 
 ###### 23 de Abril de 2021
 #
-[![UnB](https://i.imgur.com/aDOberc.png)](https://www.unb.br)           [![UnB](https://i.imgur.com/oq9AKbz.png)](https://cic.unb.br/)
+[![UnB](https://i.imgur.com/aDOberc.png)](https://www.unb.br)               [![UnB](https://i.imgur.com/oq9AKbz.png)](https://cic.unb.br/)
 
 [![Build Status](https://travis-ci.com/Jaxiii/LP_2020-2_Go.svg?branch=main)](https://travis-ci.com/jaxiii/LP_2020-2_Go)
 
