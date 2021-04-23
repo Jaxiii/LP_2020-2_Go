@@ -35,7 +35,11 @@ para compilar e executar
 
 ## Development
 
- [![Bruno](https://i.imgur.com/88vcXCx.png)](https://github.com/Jaxiii) Bruno S. R. de Barros - 18/0046063
+ [![Bruno B.]()](https://github.com/Jaxiii) Bruno S. R. de Barros - 18/0046063
+ [![Caio M.]()](https://github.com/Jaxiii) Caio Bernardon N. K. Massucato - 16/0115001
+[![Gabriel A.]()](https://github.com/Jaxiii) Gabriel Nardelli Aprá - 18/0046322
+[![Gabriel P.]()](https://github.com/Jaxiii) Gabriel Rodrigues Pacheco - 17/0058280
+[![João M.]()](https://github.com/Jaxiii) João Marcos Melo Monteiro -13/0143031
 
 
 ## License
