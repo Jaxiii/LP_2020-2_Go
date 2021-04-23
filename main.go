@@ -1,54 +1,88 @@
+/*
+CryptoGo
+Universidade de Brasília
+Departamento de Ciência da Computação
+Linguagens de Programação - CIC0093 - 2020/2 B
+Prof. Dr. Marcelo Ladeira
+
+Desenvolvido por
+	Bruno Sanguinetti Regadas de Barros - 18/0046063
+	Caio Bernardon N. K. Massucato - 16/0115001
+	Gabriel Nardelli Aprá - 18/0046322
+	Gabriel Rodrigues Pacheco - 17/0058280
+	João Marcos Melo Monteiro -13/0143031
+
+
+*/
 package main
 
 import (
 	"fmt"
+
 	"github.com/adshao/go-binance/v2"
 )
 
-var routines bool = true
+var keepAlive bool = true
 
 func main() {
-	go getBTC()
-	go getETH()
-	should_finish()
+	streamCandle("BTCUSDT", "1m")
+	streamTicker("ETHUSDT")
+	commSwitch()
 }
 
-func getBTC() {
-	wsKlineHandler := func(event *binance.WsKlineEvent) {
-		fmt.Println("\n",event)
-		fmt.Println("\n-----------------------------------------------------------------------------------------------------------------------")
+// streamCandle(symbol, time) Recebe como argumento um simbolo de tipo string
+// e um tempo de tipo string no formato 1m , 5m , 15m, 30m, 1h, 2h, 4h...
+// e inicia uma conexão webSocket com o servidor HTTP da Binance, recebendo
+// WsKlineEvent struct em formato json por 2000ms
+func streamCandle(symbol string, time string) {
 
+	// Handler de sucesso, receberá o stream do servidor em json
+	wsKlineHandler := func(event *binance.WsKlineEvent) {
+		fmt.Println("\n", event)
+		fmt.Println("\n-----------------------------------------------------------------------------------------------------------------------")
 	}
 	errHandler := func(err error) {
 		fmt.Println(err)
 	}
 
-	_, _, err := binance.WsKlineServe("BTCBRL", "1m", wsKlineHandler, errHandler)
+	// Inicia a conexão webSocket com o servidor HTTP da Binance,
+	// chamando a função da biblioteca que conecta ao endPoint de Candle.
+	doneC, _, err := binance.WsKlineServe(symbol, time, wsKlineHandler, errHandler)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	<-doneC
 }
 
-func getETH() {
-	wsKlineHandler := func(event *binance.WsKlineEvent) {
-		fmt.Println("\n",event)
-		fmt.Println("\n-----------------------------------------------------------------------------------------------------------------------")
+// streamTicker(symbol) Recebe como argumento um simbolo de tipo string
+// e inicia uma conexão webSocket com o servidor HTTP da Binance,
+// recebendo WsMarketStatEvent struct em formato json por 1000ms
+func streamTicker(symbol string) {
 
+	// Handler de sucesso, receberá o stream do servidor em json
+	wsMarketStatEvent := func(event *binance.WsMarketStatEvent) {
+		fmt.Println("\n", event)
+		fmt.Println("\n-----------------------------------------------------------------------------------------------------------------------")
 	}
+	// Handler de erro, receberá o stream do servidor com json
 	errHandler := func(err error) {
 		fmt.Println(err)
 	}
-	_, _, err := binance.WsKlineServe("ETHBRL", "1m", wsKlineHandler, errHandler)
+
+	// Inicia a conexão webSocket com o servidor HTTP da Binance,
+	// chamando a função da biblioteca que conecta ao endPoint de ticker.
+	doneC, _, err := binance.WsMarketStatServe(symbol, wsMarketStatEvent, errHandler)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	<-doneC
 }
 
-func should_finish() {
-	for routines {
+// Mantem a procedure principal viva.
+func commSwitch() {
+	for keepAlive {
 		continue
 	}
 }
