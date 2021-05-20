@@ -1,23 +1,24 @@
 package main
 
 type CryptoArray struct {
+	symbol    string
 	PastMeter struct {
-		last1m  []Price
-		last5m  []Price
-		last15m []Price
-		last1h  []Price
-		last4h  []Price
-		last1d  []Price
-		last1w  []Price
+		past1m  [3]Price
+		past5m  [3]Price
+		past15m [3]Price
+		past1h  [3]Price
+		past4h  [3]Price
+		past1d  [3]Price
+		past1w  [3]Price
 	}
 	ActualMeter struct {
-		actual1m  []Price
-		actual5m  []Price
-		actual15m []Price
-		actual1h  []Price
-		actual4h  []Price
-		actual1d  []Price
-		actual1w  []Price
+		actual1m  [3]Price
+		actual5m  [3]Price
+		actual15m [3]Price
+		actual1h  [3]Price
+		actual4h  [3]Price
+		actual1d  [3]Price
+		actual1w  [3]Price
 	}
 }
 
@@ -31,7 +32,7 @@ type CryptoMatrix struct {
 }
 
 type Price struct {
-	open  int
-	close int
-	mean  int
+	open   float64
+	close  float64
+	actual float64
 }
