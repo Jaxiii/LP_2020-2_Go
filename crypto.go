@@ -1,5 +1,27 @@
 package main
 
+type CryptoDinamic struct {
+	symbol    string
+	PastMeter struct {
+		past1m  []Price
+		past5m  []Price
+		past15m []Price
+		past1h  []Price
+		past4h  []Price
+		past1d  []Price
+		past1w  []Price
+	}
+	ActualMeter struct {
+		actual1m  []Price
+		actual5m  []Price
+		actual15m []Price
+		actual1h  []Price
+		actual4h  []Price
+		actual1d  []Price
+		actual1w  []Price
+	}
+}
+
 type CryptoArray struct {
 	symbol    string
 	PastMeter struct {
