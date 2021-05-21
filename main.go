@@ -25,16 +25,17 @@ import (
 )
 
 var (
-	keepAlive bool   = true
-	apiKey    string = "O3zgmJN2lDGvh0DrW0vd98l4g7hOXzGGZ1iij8oo4D21lbDuUOqUYYaI5G1e3G5e"
-	secretKey string = "Ab5FB39GDzu4LQrurGyh8OMOVN0jsPz8FQHK9ncKRCkIupHpGyTrwQEgw98rSHlS"
+	apiKey    string = "123"
+	secretKey string = "123"
 )
+
+var keepAlive bool = true
 
 func main() {
 	//client := binance.NewClient(apiKey, secretKey)
 	//ticker(client, "ETHUSDT")
 	//go streamTicker("ETHUSDT")
-	//go streamCandle("BTCUSDT", "5m")
+	go streamCandle("BTCUSDT", "5m")
 	go streamCandle("ETHUSDT", "1m")
 	commSwitch()
 }
@@ -66,45 +67,42 @@ func returnCoins() CryptoArray {
 	return <-chanCoins()
 }
 
-func priceMean(actualPricee [3]Price, pastPrice [3]Price, meanChannel chan [2]float64) {
+func priceMean(actualPrice [18]Price, pastPrice [18]Price, meanChannel chan [2]float64) {
 	var (
-		actualMean   float64 = 0
-		actualSum    float64 = 0
-		pastMean     float64 = 0
-		pastSum      float64 = 0
-		streamedCoin CryptoArray
+		actualMean float64 = 0
+		actualSum  float64 = 0
+		pastMean   float64 = 0
+		pastSum    float64 = 0
 	)
-	for i := 0; i < len(streamedCoin.ActualMeter.actual1m); i++ {
-		actualSum += streamedCoin.ActualMeter.actual1m[i].open
+	for i := 0; i < len(actualPrice); i++ {
+		actualSum += actualPrice[i].open
 
 	}
-	for i := 0; i < len(streamedCoin.PastMeter.past1m); i++ {
-		pastSum += streamedCoin.PastMeter.past1m[i].open
+	for i := 0; i < len(pastPrice); i++ {
+		pastSum += pastPrice[i].open
 
 	}
-	actualMean = actualSum / float64(len(streamedCoin.ActualMeter.actual1m))
-	streamedCoin.ActualMeter.actual1m[0].open = actualMean
+	actualMean = actualSum / float64(len(actualPrice))
+	actualPrice[0].open = actualMean
 
-	pastMean = pastSum / float64(len(streamedCoin.PastMeter.past1m))
-	streamedCoin.PastMeter.past1m[0].open = pastMean
+	pastMean = pastSum / float64(len(pastPrice))
+	pastPrice[0].open = pastMean
 	var means = [2]float64{actualMean, pastMean}
 	meanChannel <- means
 }
 
-// ticker(client, symbol) Recebe como argumento um cliente autenticado e simbolo de tipo string
-// e um tempo de tipo string no formato 1m , 5m , 15m, 30m, 1h, 2h, 4h...
-// e inicia uma conexão webSocket com o servidor HTTP da Binance, recebendo
-// WsKlineEvent struct em formato json por 2000ms
-func ticker(client *binance.Client, symbol string) {
+func printActual(symbol string, actualPriceCounter int, actualPrice [18]Price) {
+	fmt.Println("_______________________________________________________________")
+	fmt.Println(symbol)
+	fmt.Printf("%d - ", actualPriceCounter)
+	fmt.Print("Preço Atual: ")
+	fmt.Println(actualPrice[actualPriceCounter])
+}
 
-	prices, err := client.NewListPricesService().Symbol(symbol).Do(context.Background())
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for _, p := range prices {
-		fmt.Println(p)
-	}
+func printPast(pastPriceCounter int, pastPrice [18]Price) {
+	fmt.Printf("%d - ", pastPriceCounter)
+	fmt.Print("Preço Passado: ")
+	fmt.Println(pastPrice[pastPriceCounter])
 }
 
 func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
@@ -117,7 +115,7 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 		means                   = [2]float64{0.0, 0.0}
 	)
 	var streamedCoin CryptoArray
-	var meanChannel chan [2]float64
+	meanChannel := make(chan [2]float64)
 	var coinChannel = chanCoins()
 	streamedCoin = <-coinChannel
 	streamedCoin.symbol = symbol
@@ -132,38 +130,29 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 		} else {
 			streamedPrice := Price{open: a}
 			if streamedPrice != streamedCoin.ActualMeter.actual1m[actualPriceCounter] {
-				go priceMean(streamedCoin.ActualMeter.actual1m, streamedCoin.PastMeter.past1m, meanChannel)
-				streamedCoin.ActualMeter.actual1m[0].open = means[0]
-				streamedCoin.ActualMeter.actual1m[0].open = means[1]
-				if actualPriceCounter == 2 {
+				if actualPriceCounter == 17 {
 					firstIteration = false
 					actualPriceCounter = 0
 				}
 				actualPriceCounter++
 				if firstIteration {
 					streamedCoin.ActualMeter.actual1m[actualPriceCounter] = streamedPrice
-					fmt.Println("_______________________________________________________________")
-					fmt.Println(symbol)
-					fmt.Printf("%d - ", actualPriceCounter)
-					fmt.Print("Preço Atual: ")
-					fmt.Println(streamedCoin.ActualMeter.actual1m[actualPriceCounter])
+					printActual(symbol, actualPriceCounter, streamedCoin.ActualMeter.actual1m)
 					fmt.Printf("Local de Memória do Objeto: %p\n", &streamedCoin)
 				} else {
 					pastPriceCounter++
-					if pastPriceCounter <= 2 {
+					if pastPriceCounter <= 17 {
 						streamedCoin.PastMeter.past1m[pastPriceCounter] = streamedCoin.ActualMeter.actual1m[pastPriceCounter]
 						streamedCoin.ActualMeter.actual1m[actualPriceCounter] = streamedPrice
-						fmt.Println("_______________________________________________________________")
-						fmt.Println(symbol)
-						fmt.Printf("%d - ", pastPriceCounter)
-						fmt.Print("Preço Passado: ")
-						fmt.Println(streamedCoin.PastMeter.past1m)
-						fmt.Printf("%d - ", actualPriceCounter)
-						fmt.Print("Preço Atual: ")
-						fmt.Println(streamedCoin.ActualMeter.actual1m)
+						printActual(symbol, actualPriceCounter, streamedCoin.ActualMeter.actual1m)
+						printPast(actualPriceCounter, streamedCoin.PastMeter.past1m)
 						fmt.Printf("Local de Memória do Objeto: %p\n", &streamedCoin)
-						if pastPriceCounter == 2 {
+						if pastPriceCounter == 17 {
 							pastPriceCounter = 0
+							go priceMean(streamedCoin.ActualMeter.actual1m, streamedCoin.PastMeter.past1m, meanChannel)
+							means = <-meanChannel
+							streamedCoin.ActualMeter.actual1m[0].open = means[0]
+							streamedCoin.PastMeter.past1m[0].open = means[1]
 						}
 					}
 				}
@@ -200,6 +189,22 @@ func streamCandle(symbol string, time string) {
 	}
 	<-doneC
 
+}
+
+// ticker(client, symbol) Recebe como argumento um cliente autenticado e simbolo de tipo string
+// e um tempo de tipo string no formato 1m , 5m , 15m, 30m, 1h, 2h, 4h...
+// e inicia uma conexão webSocket com o servidor HTTP da Binance, recebendo
+// WsKlineEvent struct em formato json por 2000ms
+func ticker(client *binance.Client, symbol string) {
+
+	prices, err := client.NewListPricesService().Symbol(symbol).Do(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, p := range prices {
+		fmt.Println(p)
+	}
 }
 
 // streamTicker(symbol) Recebe como argumento um simbolo de tipo string
