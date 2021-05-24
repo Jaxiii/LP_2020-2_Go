@@ -41,30 +41,87 @@ func main() {
 }
 
 //Inicializa os objetos (scructs) de cada moeda
-func setCoins() CryptoArray {
-	fmt.Println("Coin struct configurado e alocado!")
+func setCoin() CryptoArray {
 	coin := CryptoArray{}
+	fmt.Println("Coin struct configurado e alocado!")
 	return coin
 }
 
 // Abre um canal de comunicação (channel) para que go routines
 // tenham acesso simultaneo aos objetos (sctructs) das moedas
 // retornando um canal com tipos CryptoArray (chan CryptoArray)
-func chanCoins() chan CryptoArray {
+func chanCoin() chan CryptoArray {
 	fmt.Println("Abrindo canal para coin.")
 	coin := make(chan CryptoArray)
-	go func() {
-		coin <- setCoins()
-	}()
 	fmt.Println("Canal aberto com sucesso!")
+	go func() {
+		coin <- setCoin()
+		fmt.Println("Coin inserido no canal!")
+	}()
 	return coin
 }
 
 // Retorna o objeto que esta no canal (channel) como um
 // objeto propriamente do tipo CryptoArray.
-func returnCoins() CryptoArray {
-	fmt.Println("Sinalizando abertura de canal...")
-	return <-chanCoins()
+func returnCoin() CryptoArray {
+	fmt.Println("Retornando Objeto no canal...")
+	return <-chanCoin()
+}
+
+//Inicializa os objetos (scructs) de cada moeda
+func setSliceMatrixCoin() CryptoSliceMatrix {
+	coin := CryptoSliceMatrix{}
+	fmt.Println("Coin struct configurado e alocado!")
+	return coin
+}
+
+// Abre um canal de comunicação (channel) para que go routines
+// tenham acesso simultaneo aos objetos (sctructs) das moedas
+// retornando um canal com tipos CryptoSliceMatrix (chan CryptoSliceMatrix)
+func chanSliceMatrixCoin() chan CryptoSliceMatrix {
+	fmt.Println("Abrindo canal para coin.")
+	coin := make(chan CryptoSliceMatrix)
+	fmt.Println("Canal aberto com sucesso!")
+	go func() {
+		coin <- setSliceMatrixCoin()
+		fmt.Println("Coin inserido no canal!")
+	}()
+	return coin
+}
+
+// Retorna o objeto que esta no canal (channel) como um
+// objeto propriamente do tipo CryptoSliceMatrix.
+func returnSliceMatrixCoin() CryptoSliceMatrix {
+	fmt.Println("Retornando Objeto no canal...")
+	return <-chanSliceMatrixCoin()
+}
+
+//Inicializa os objetos (scructs) de cada moeda
+func setMean() []float64 {
+	mean := []float64{}
+	fmt.Println("Mean slice configurado e alocado!")
+	return mean
+}
+
+// Abre um canal de comunicação (channel) para que go routines
+// tenham acesso simultaneo aos objetos (sctructs) das moedas
+// retornando um canal com tipos CryptoArray (chan CryptoArray)
+func chanMean() chan []float64 {
+	fmt.Println("Abrindo canal para mean.")
+	meanChannel := make(chan []float64)
+	fmt.Println("Canal aberto com sucesso!")
+	go func() {
+		meanChannel <- setMean()
+		fmt.Println("Mean inserido no canal!")
+	}()
+	return meanChannel
+}
+
+// Retorna o objeto que esta no canal (channel) como um
+// objeto propriamente do tipo CryptoArray.
+func returnMean() []float64 {
+	fmt.Println("Retornando Objeto no mean channel...")
+	return <-chanMean()
 }
 
 func priceMean(actualPrice [18]Price, pastPrice [18]Price, meanChannel chan [2]float64) {
@@ -105,18 +162,85 @@ func printPast(pastPriceCounter int, pastPrice [18]Price) {
 	fmt.Println(pastPrice[pastPriceCounter])
 }
 
+func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string) {
+
+	var (
+		//pastMean           float64 = 0
+		streamedCoin CryptoSliceMatrix
+		//actualPriceCounter int  = 0
+		//pastPriceCounter   int  = 0
+		//firstIteration     bool = true
+		//means                   = [2]float64{0.0, 0.0}
+		coinChannel = chanSliceMatrixCoin()
+		//meanChannel             = chanMean()
+	)
+
+	//meanChannel := make(chan [2]float64)
+	streamedCoin = <-coinChannel
+	streamedCoin.symbol = symbol
+
+	for keepAlive {
+		var streamedEvent *binance.WsKlineEvent
+		streamedEvent = <-event
+		a, err := strconv.ParseFloat(streamedEvent.Kline.Open, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		} else {
+			streamedPrice := Price{open: a}
+			streamedCoin.priceMeter = append(streamedCoin.priceMeter, []Price{streamedPrice})
+			fmt.Println(streamedCoin.priceMeter)
+		}
+	}
+	/*
+			if streamedPrice != streamedCoin.priceMeter[len(streamedCoin.priceMeter)-1][len(streamedCoin.priceMeter)-1] {
+				if actualPriceCounter == 17 {
+					firstIteration = false
+					actualPriceCounter = 0
+				}
+				actualPriceCounter++
+				if firstIteration {
+					streamedCoin.ActualMeter.actual1m[actualPriceCounter] = streamedPrice
+					printActual(symbol, actualPriceCounter, streamedCoin.ActualMeter.actual1m)
+					fmt.Printf("Local de Memória do Objeto: %p\n", &streamedCoin)
+				} else {
+					pastPriceCounter++
+					if pastPriceCounter <= 17 {
+						streamedCoin.PastMeter.past1m[pastPriceCounter] = streamedCoin.ActualMeter.actual1m[pastPriceCounter]
+						streamedCoin.ActualMeter.actual1m[actualPriceCounter] = streamedPrice
+						printActual(symbol, actualPriceCounter, streamedCoin.ActualMeter.actual1m)
+						printPast(actualPriceCounter, streamedCoin.PastMeter.past1m)
+						fmt.Printf("Local de Memória do Objeto: %p\n", &streamedCoin)
+						if pastPriceCounter == 17 {
+							pastPriceCounter = 0
+							go priceMean(streamedCoin.ActualMeter.actual1m, streamedCoin.PastMeter.past1m, meanChannel)
+							means = <-meanChannel
+							streamedCoin.ActualMeter.actual1m[0].open = means[0]
+							streamedCoin.PastMeter.past1m[0].open = means[1]
+						}
+					}
+				}
+			} else {
+				streamedCoin.ActualMeter.actual1m[actualPriceCounter] = streamedPrice
+			}
+		}
+	}*/
+
+}
+
 func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 
 	var (
 		//pastMean           float64 = 0
+		streamedCoin       CryptoArray
 		actualPriceCounter int  = 0
 		pastPriceCounter   int  = 0
 		firstIteration     bool = true
 		means                   = [2]float64{0.0, 0.0}
+		coinChannel             = chanCoin()
 	)
-	var streamedCoin CryptoArray
+
 	meanChannel := make(chan [2]float64)
-	var coinChannel = chanCoins()
 	streamedCoin = <-coinChannel
 	streamedCoin.symbol = symbol
 
@@ -172,6 +296,7 @@ func streamCandle(symbol string, time string) {
 
 	streamedEvent := make(chan *binance.WsKlineEvent)
 	go assembleKline(streamedEvent, symbol)
+	go sliceMatrixAssembleKline(streamedEvent, symbol)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsKlineHandler := func(event *binance.WsKlineEvent) {
 		streamedEvent <- event
@@ -212,7 +337,7 @@ func ticker(client *binance.Client, symbol string) {
 // recebendo WsMarketStatEvent struct em formato json por 1000ms
 func streamTicker(symbol string) {
 
-	streamedCoin := returnCoins()
+	streamedCoin := returnCoin()
 	streamedCoin.symbol = symbol
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsMarketStatEvent := func(event *binance.WsMarketStatEvent) {

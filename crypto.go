@@ -1,6 +1,6 @@
 package main
 
-type CryptoDinamic struct {
+type CryptoSlice struct {
 	symbol    string
 	PastMeter struct {
 		past1m  []Price
@@ -45,12 +45,18 @@ type CryptoArray struct {
 }
 
 type CryptoMatrix struct {
+	symbol    string
 	PastMeter struct {
 		last [7][17]Price
 	}
 	ActualMeter struct {
 		actual [7][17]Price
 	}
+}
+
+type CryptoSliceMatrix struct {
+	symbol     string
+	priceMeter [][]Price
 }
 
 type Price struct {
