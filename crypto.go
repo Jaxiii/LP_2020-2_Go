@@ -55,12 +55,22 @@ type CryptoMatrix struct {
 }
 
 type CryptoSliceMatrix struct {
-	symbol     string
-	priceMeter [][]Price
+	symbol      string
+	actualPrice float64
+	mean        [2]float64
+	priceMeter  [][]Candle
 }
 
 type Price struct {
-	open   float64
-	close  float64
-	actual float64
+	open  float64
+	close float64
+	mean  float64
+}
+
+type Candle struct {
+	mean  float64
+	open  float64
+	close float64
+	high  float64
+	low   float64
 }

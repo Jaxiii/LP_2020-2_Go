@@ -35,7 +35,7 @@ func main() {
 	//client := binance.NewClient(apiKey, secretKey)
 	//ticker(client, "ETHUSDT")
 	//go streamTicker("ETHUSDT")
-	go streamCandle("BTCUSDT", "5m")
+	//go streamCandle("BTCUSDT", "5m")
 	go streamCandle("ETHUSDT", "1m")
 	commSwitch()
 }
@@ -166,11 +166,15 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string) {
 
 	var (
 		//pastMean           float64 = 0
-		streamedCoin CryptoSliceMatrix
+		streamedCoin  CryptoSliceMatrix
+		streamedEvent *binance.WsKlineEvent
 		//actualPriceCounter int  = 0
 		//pastPriceCounter   int  = 0
 		//firstIteration     bool = true
 		//means                   = [2]float64{0.0, 0.0}
+		streamedCandle  Candle
+		actualPriceList []Candle
+		//pastPriceList   []Candle
 		coinChannel = chanSliceMatrixCoin()
 		//meanChannel             = chanMean()
 	)
@@ -180,21 +184,40 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string) {
 	streamedCoin.symbol = symbol
 
 	for keepAlive {
-		var streamedEvent *binance.WsKlineEvent
 		streamedEvent = <-event
-		a, err := strconv.ParseFloat(streamedEvent.Kline.Open, 64)
+		open, err := strconv.ParseFloat(streamedEvent.Kline.Open, 64)
 		if err != nil {
 			fmt.Println(err)
 			return
-		} else {
-			streamedPrice := Price{open: a}
-			streamedCoin.priceMeter = append(streamedCoin.priceMeter, []Price{streamedPrice})
-			fmt.Println(streamedCoin.priceMeter)
 		}
+		close, err := strconv.ParseFloat(streamedEvent.Kline.Close, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		high, err := strconv.ParseFloat(streamedEvent.Kline.High, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		low, err := strconv.ParseFloat(streamedEvent.Kline.Low, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		//volume, err := strconv.ParseFloat(streamedEvent.Kline.Volume, 64)
+		//streamedCoin.priceMeter = append(streamedCoin.priceMeter, Price{streamedPrice})
+		if streamedCandle == (Candle{}) {
+			streamedCandle = Candle{open: open, close: close, high: high, low: low}
+		}
+		if streamedCandle.open != open {
+			actualPriceList = append(actualPriceList, streamedCandle)
+			fmt.Println(actualPriceList)
+		}
+		streamedCandle = Candle{open: open, close: close, high: high, low: low}
+
 	}
-	/*
-			if streamedPrice != streamedCoin.priceMeter[len(streamedCoin.priceMeter)-1][len(streamedCoin.priceMeter)-1] {
-				if actualPriceCounter == 17 {
+	/*if actualPriceCounter == 17 {
 					firstIteration = false
 					actualPriceCounter = 0
 				}
@@ -225,7 +248,6 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string) {
 			}
 		}
 	}*/
-
 }
 
 func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
@@ -295,7 +317,7 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 func streamCandle(symbol string, time string) {
 
 	streamedEvent := make(chan *binance.WsKlineEvent)
-	go assembleKline(streamedEvent, symbol)
+	//go assembleKline(streamedEvent, symbol)
 	go sliceMatrixAssembleKline(streamedEvent, symbol)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsKlineHandler := func(event *binance.WsKlineEvent) {
