@@ -1,0 +1,72 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="stylesheet" href="index.css">
+    <title>CRYPTOBOT BABY</title>
+    <style>
+        div {text-align: center;}
+    </style>
+  </head>
+  <body>
+      <div>
+  <pre style="display:inline;">                 
+############################                    .andF4M4Sbn.
+ #          UPDATE         #  #                 .aAHHHAAUUAAHHHAn.
+#           BOX             #   #               .dHP^~"        "~^THb.
+  ###############################    #          .   .AHF   <pre style="display:inline; color:red;">CRYPTOBOT</pre>    YHA.   .
+  #   ALL EYEZ OPEN             #    #          |  .AHHb.     <pre style="display:inline; color:red;">v0.3</pre>      .dHHA. |
+  #   CRYPTO BOT                #   #           |  HHAUAAHAbn      adAHAAUAHA  |
+  #   v0.3                      #  #            I  HF~"_____        ____ ]HHH  I
+   #   BOT`LL RUN THE WORLD      # #            <pre style="display:inline; color:red;">HU3</pre> HAPK""~^YUHb  dAHHHHHHHHHH <pre style="display:inline; color:red;">HU3</pre>
+   ################################             <pre style="display:inline; color:red;">HU3</pre> HHHD> .andHH  HHUUP^~YHHHH <pre style="display:inline; color:red;">HU3</pre>
+                                                <pre style="display:inline; color:red;">HU3</pre> ]HHP     "~Y  P~"     THH[ <pre style="display:inline; color:red;">HU3</pre>
+                                                "  `HK   </pre><pre style="display:inline; color:red;">$           </pre>           <pre style="display:inline; color:red;">$</pre><pre style="display:inline;">   ]HH' "
+                                                THAn.  .d.aAAn.b.  .dHHP
+                                                ]HHHHAAUP" ~~ "YUAAHHHH[
+                                                `HHP^~"  .<pre style="display:inline; color:red;">FIRE</pre>.  "~^YHH'
+                                                YHb    ~" "" "~    dHF
+                                                "YAb..abdHHbndbndAP"
+                                                THHAAb.  .adAHHF
+                                                "UHHHHHHHHHHU"
+                                                ]HHUUHHHHHH[
+                                                .adHHb "HHHHHbn.
+                                                ..andAAHHHHHHb.AHHHHHHHAAbnn..
+                                                .ndAAHHHHHHUUHHHHHHHHHHUP^~"~^YUHHHAAbn.
+                                            "~^<pre style="display:inline; color:red;">SEDAS</pre>"   "~^<pre style="display:inline; color:red;">BABY</pre>+0"        "^<pre style="display:inline; color:red;">BOY</pre>^"
+                                                "."   <pre style="display:inline; color:red;">ENJOY</pre>     "~~"
+    </pre>
+</div>
+<div><span id="text"></span></div>
+    <script>
+        var client = new WebSocket("ws://localhost:8080/status");
+        var textArea = document.getElementById("text")
+        client.onmessage = function (event) {
+	        textArea.innerHTML = textArea.innerHTML + ' ' + event.data + '<br/>';
+            }
+        let socket = new WebSocket("ws://localhost:8080/ws");
+        console.log("Attempting Connection...");
+
+        socket.onopen = () => {
+            console.log("Successfully Connected");
+            socket.send("Hi From the Client!")
+        };
+        
+        socket.onclose = event => {
+            console.log("Socket Closed Connection: ", event);
+            socket.send("Client Closed!")
+        };
+
+        socket.onerror = error => {
+            console.log("Socket Error: ", error);
+        };
+
+        socket.onmessage = function(event) {
+            var msg = event.data;
+            console.log(msg)
+        }
+
+    </script>
+  </body>
+</html>
