@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,148 +27,79 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Disable CORS for testing
-	},
-}
-
-func headers(w http.ResponseWriter, req *http.Request) {
-
-	for name, headers := range req.Header {
-		for _, h := range headers {
-			fmt.Fprintf(w, "%v: %v\n", name, h)
-		}
-	}
-}
-
-func wsEndpoint(w http.ResponseWriter, r *http.Request) {
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
-
-	// upgrade this connection to a WebSocket
-	// connection
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-	}
-	// helpful log statement to show connections
-	log.Println("Client Connected")
-
-	msg := []byte("Let's start to talk something.")
-	err = ws.WriteMessage(websocket.TextMessage, msg)
-	if err != nil {
-		log.Println(err)
-	}
-	reader(ws)
-}
-
-// define a reader which will listen for
-// new messages being sent to our WebSocket
-// endpoint
-func reader(conn *websocket.Conn) {
-	for {
-		// read in a message
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		// print out that message for clarity
-		fmt.Println(string(p))
-
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Println(err)
-			return
-		}
-
-	}
-}
-
-func server(serverChan chan chan string) {
-	var clients []chan string
-	for {
-		select {
-		case client, _ := <-serverChan:
-			clients = append(clients, client)
-			// Broadcast the number of clients to all clients:
-			for _, c := range clients {
-				c <- fmt.Sprintf("%d client(s) connected.", len(clients))
-			}
-		}
-	}
-}
-
-func client(clientName string, clientChan chan string) {
-	for {
-		text, _ := <-clientChan
-		fmt.Printf("%s: %s\n", clientName, text)
-	}
-}
-
-func uptimeServer(serverChan chan chan string) {
-	var clients []chan string
-	uptimeChan := make(chan int, 1)
-	// This goroutine will count our uptime in the background, and write
-	// updates to uptimeChan:
-	go func(target chan int) {
-		i := 0
-		for {
-			time.Sleep(time.Second)
-			i++
-			target <- i
-		}
-	}(uptimeChan)
-	// And now we listen to new clients and new uptime messages:
-	for {
-		select {
-		case client, _ := <-serverChan:
-			clients = append(clients, client)
-		case uptime, _ := <-uptimeChan:
-			// Send the uptime to all connected clients:
-			for _, c := range clients {
-				c <- fmt.Sprintf("%d seconds uptime", uptime)
-			}
-		}
-	}
-}
-
-var (
-	apiKey    string = "123"
-	secretKey string = "123"
-)
-
 var keepAlive bool = true
 
+var upgrader = websocket.Upgrader{}
+
+func handleActualPrice(symbol string, priceChannel chan float64) {
+	var path = "/v1/price/" + symbol
+	fmt.Println(path)
+	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		var conn, _ = upgrader.Upgrade(w, r, nil)
+		var price float64
+		go func(conn *websocket.Conn) {
+			for range priceChannel {
+				price = <-priceChannel
+				conn.WriteMessage(1, []byte(strconv.FormatFloat(price, 'f', -1, 64)))
+			}
+		}(conn)
+	})
+}
+
+func handleDateTime() {
+	http.HandleFunc("/v1/datetime", func(w http.ResponseWriter, r *http.Request) {
+		var conn, _ = upgrader.Upgrade(w, r, nil)
+		var dateTime time.Time
+		go func(conn *websocket.Conn) {
+			ch := time.Tick(time.Duration(time.Now().Local().Minute()))
+			for range ch {
+				dateTime = <-ch
+				conn.WriteMessage(1, []byte(dateTime.Format(time.RFC1123)))
+			}
+		}(conn)
+	})
+}
+
+func handleUptime() {
+	http.HandleFunc("/v1/uptime", func(w http.ResponseWriter, r *http.Request) {
+		var conn, _ = upgrader.Upgrade(w, r, nil)
+		var i int64
+		go func(conn *websocket.Conn) {
+			ch := time.Tick(time.Second)
+			for range ch {
+				conn.WriteMessage(1, []byte(strconv.FormatInt(i, 10)))
+				i++
+			}
+		}(conn)
+	})
+}
+
+func handleFractal(msg string) {
+	http.HandleFunc("/v1/fractal", func(w http.ResponseWriter, r *http.Request) {
+		var conn, _ = upgrader.Upgrade(w, r, nil)
+		go func(conn *websocket.Conn) {
+			for {
+				mType, _, _ := conn.ReadMessage()
+				conn.WriteMessage(mType, []byte(msg))
+			}
+		}(conn)
+	})
+}
+
 func main() {
+	coinChannel := chanSliceMatrixCoin()
 	//client := binance.NewClient(apiKey, secretKey)
 	//ticker(client, "ETHUSDT")
 	//go streamCandle("BTCUSDT", "5m")
 	//Inicializa os objetos (scructs) de cada moeda
-	serverChan := make(chan chan string, 4)
-	go uptimeServer(serverChan)
-	// Define a HTTP handler function for the /status endpoint, that can receive
-	// WebSocket-connections only... so note that browsing it with your browser will fail.
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		// Upgrade this HTTP connection to a WS connection:
-		ws, _ := upgrader.Upgrade(w, r, nil)
-		// And register a client for this connection with the uptimeServer:
-		client := make(chan string, 1)
-		serverChan <- client
-		// And now check for uptimes written to the client indefinitely.
-		// Yes, we are lacking proper error and disconnect checking here, too:
-		for {
-			select {
-			case text, _ := <-client:
-				writer, _ := ws.NextWriter(websocket.TextMessage)
-				writer.Write([]byte(text))
-				writer.Close()
-			}
-		}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
 	})
+	go handleFractal("Bip... Bop... Fractal Test")
+	go handleDateTime()
+	go handleUptime()
 	go http.ListenAndServe(":8080", nil)
-	go streamCandle("ETHUSDT", "1m")
+	go streamCandle("ETHUSDT", "1m", coinChannel)
 	commSwitch()
 
 }
@@ -258,7 +188,7 @@ func returnMean() []float64 {
 	return <-chanMean()
 }
 
-func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, num_item int) {
+func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, num_item int, coinChannel chan CryptoSliceMatrix) {
 
 	var (
 		//pastMean           float64 = 0
@@ -272,7 +202,6 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 		streamedCandle  Candle
 		actualPriceList []Candle
 		pastPriceList   []Candle
-		coinChannel     = chanSliceMatrixCoin()
 		priceChannel    = make(chan float64)
 		//meanChannel     = chanMean()
 	)
@@ -281,7 +210,6 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 	streamedCoin = <-coinChannel
 	streamedCoin.symbol = symbol
 	go streamTicker(symbol, priceChannel)
-	http.HandleFunc("/ws", wsEndpoint)
 	for keepAlive {
 		streamedEvent = <-event
 		streamedCoin.actualPrice = <-priceChannel
@@ -339,7 +267,6 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 		}
 		streamedCandle = Candle{open: open, close: close, high: high, low: low}
 		fmt.Printf("%s\n\r%.2f\n\r%v\n\r", streamedCoin.symbol, streamedCoin.actualPrice, streamedCoin.priceMeter)
-		//fmt.Printf("%v \r", streamedCoin.priceMeter)
 	}
 }
 
@@ -407,11 +334,11 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 // e um tempo de tipo string no formato 1m , 5m , 15m, 30m, 1h, 2h, 4h...
 // e inicia uma conexão webSocket com o servidor HTTP da Binance, recebendo
 // WsKlineEvent struct em formato json por 2000ms
-func streamCandle(symbol string, time string) {
+func streamCandle(symbol string, time string, coinChannel chan CryptoSliceMatrix) {
 
 	streamedEvent := make(chan *binance.WsKlineEvent)
 	//go assembleKline(streamedEvent, symbol)
-	go sliceMatrixAssembleKline(streamedEvent, symbol, 2)
+	go sliceMatrixAssembleKline(streamedEvent, symbol, 2, coinChannel)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsKlineHandler := func(event *binance.WsKlineEvent) {
 		streamedEvent <- event
@@ -452,6 +379,7 @@ func ticker(client *binance.Client, symbol string) {
 // recebendo WsMarketStatEvent struct em formato json por 1000ms
 func streamTicker(symbol string, priceChannel chan float64) {
 
+	go handleActualPrice(symbol, priceChannel)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsMarketStatEvent := func(event *binance.WsMarketStatEvent) {
 		lastPrice, err := strconv.ParseFloat(event.LastPrice, 64)
