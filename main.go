@@ -31,16 +31,18 @@ var keepAlive bool = true
 
 var upgrader = websocket.Upgrader{}
 
-func handleActualPrice(symbol string, priceChannel chan float64) {
+func handleActualPrice(symbol string, coinChannel *CryptoSliceMatrix) {
 	var path = "/v1/price/" + symbol
 	fmt.Println(path)
 	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		var conn, _ = upgrader.Upgrade(w, r, nil)
-		var price float64
 		go func(conn *websocket.Conn) {
-			for range priceChannel {
-				price = <-priceChannel
-				conn.WriteMessage(1, []byte(strconv.FormatFloat(price, 'f', -1, 64)))
+			timeChannel := time.Tick(time.Second)
+			var i float64
+			for range timeChannel {
+				conn.WriteJSON(coinChannel.ActualPrice)
+				time.Sleep(time.Second)
+				i++
 			}
 		}(conn)
 	})
@@ -51,9 +53,9 @@ func handleDateTime() {
 		var conn, _ = upgrader.Upgrade(w, r, nil)
 		var dateTime time.Time
 		go func(conn *websocket.Conn) {
-			ch := time.Tick(time.Duration(time.Now().Local().Minute()))
-			for range ch {
-				dateTime = <-ch
+			timeChannel := time.Tick(time.Second)
+			for range timeChannel {
+				dateTime = <-timeChannel
 				conn.WriteMessage(1, []byte(dateTime.Format(time.RFC1123)))
 			}
 		}(conn)
@@ -63,24 +65,27 @@ func handleDateTime() {
 func handleUptime() {
 	http.HandleFunc("/v1/uptime", func(w http.ResponseWriter, r *http.Request) {
 		var conn, _ = upgrader.Upgrade(w, r, nil)
-		var i int64
 		go func(conn *websocket.Conn) {
-			ch := time.Tick(time.Second)
-			for range ch {
-				conn.WriteMessage(1, []byte(strconv.FormatInt(i, 10)))
-				i++
+			start := time.Now()
+			timeChannel := time.Tick(time.Second)
+			for range timeChannel {
+				uptime := time.Since(start)
+				conn.WriteMessage(1, []byte(strconv.FormatFloat(uptime.Seconds(), 'G', -1, 64)))
 			}
 		}(conn)
 	})
 }
 
-func handleFractal(msg string) {
+func handleFractal(msg string, coinChannel *CryptoSliceMatrix) {
 	http.HandleFunc("/v1/fractal", func(w http.ResponseWriter, r *http.Request) {
 		var conn, _ = upgrader.Upgrade(w, r, nil)
 		go func(conn *websocket.Conn) {
-			for {
-				mType, _, _ := conn.ReadMessage()
-				conn.WriteMessage(mType, []byte(msg))
+			timeChannel := time.Tick(time.Second)
+			var i float64
+			for range timeChannel {
+				conn.WriteJSON(*coinChannel)
+				time.Sleep(time.Second)
+				i++
 			}
 		}(conn)
 	})
@@ -95,7 +100,6 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	})
-	go handleFractal("Bip... Bop... Fractal Test")
 	go handleDateTime()
 	go handleUptime()
 	go http.ListenAndServe(":8080", nil)
@@ -205,14 +209,15 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 		priceChannel    = make(chan float64)
 		//meanChannel     = chanMean()
 	)
-
-	//meanChannel := make(chan [2]float64)
 	streamedCoin = <-coinChannel
-	streamedCoin.symbol = symbol
+	streamedCoin.Symbol = symbol
+	//meanChannel := make(chan [2]float64)
 	go streamTicker(symbol, priceChannel)
+	go handleActualPrice(symbol, &streamedCoin)
+	go handleFractal("Bip... Bop... Fractal Test", &streamedCoin)
 	for keepAlive {
 		streamedEvent = <-event
-		streamedCoin.actualPrice = <-priceChannel
+		streamedCoin.ActualPrice = <-priceChannel
 		open, err := strconv.ParseFloat(streamedEvent.Kline.Open, 64)
 		if err != nil {
 			fmt.Println(err)
@@ -234,9 +239,9 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 			return
 		}
 		if streamedCandle == (Candle{}) {
-			streamedCandle = Candle{open: open, close: close, high: high, low: low}
+			streamedCandle = Candle{Open: open, Close: close, High: high, Low: low}
 		}
-		if streamedCandle.open != open {
+		if streamedCandle.Open != open {
 			if actualPriceCounter < num_item || !firstIteration {
 				actualPriceList = append(actualPriceList, streamedCandle)
 				actualPriceCounter++
@@ -262,11 +267,100 @@ func sliceMatrixAssembleKline(event chan *binance.WsKlineEvent, symbol string, n
 				pastPriceCounter = 0
 			}
 			priceMeter = [][]Candle{actualPriceList, pastPriceList}
-			streamedCoin.priceMeter = priceMeter
+			streamedCoin.PriceMeter = priceMeter
+			fmt.Println("+++++++TEEEEEEY+++++++")
+			fmt.Printf("%p", &streamedCoin)
 			//coinChannel <- streamedCoin
 		}
-		streamedCandle = Candle{open: open, close: close, high: high, low: low}
-		fmt.Printf("%s\n\r%.2f\n\r%v\n\r", streamedCoin.symbol, streamedCoin.actualPrice, streamedCoin.priceMeter)
+		streamedCandle = Candle{Open: open, Close: close, High: high, Low: low}
+		fmt.Printf("%s\n\r%.2f\n\r%v\n\r", streamedCoin.Symbol, streamedCoin.ActualPrice, streamedCoin.PriceMeter)
+	}
+}
+
+func sliceMatrixAssembleKlineV2(event chan *binance.WsKlineEvent, symbol string, num_item int, coinChannel chan CryptoSliceMatrix) {
+
+	var (
+		//pastMean           float64 = 0
+		streamedCoin       CryptoSliceMatrix
+		streamedEvent      *binance.WsKlineEvent
+		actualPriceCounter int  = 0
+		pastPriceCounter   int  = 0
+		firstIteration     bool = true
+		priceMeter         [][]Candle
+		//means           = [2]float64{0.0, 0.0}
+		streamedCandle  Candle
+		actualPriceList []Candle
+		pastPriceList   []Candle
+		priceChannel    = make(chan float64)
+		//meanChannel     = chanMean()
+	)
+
+	//meanChannel := make(chan [2]float64)
+	go streamTicker(symbol, priceChannel)
+	for keepAlive {
+		if len(streamedCoin.PriceMeter) >= 2 {
+			streamedCoin = setSliceMatrixCoin()
+		}
+		streamedCoin.Symbol = symbol
+		streamedEvent = <-event
+		streamedCoin.ActualPrice = <-priceChannel
+		open, err := strconv.ParseFloat(streamedEvent.Kline.Open, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		close, err := strconv.ParseFloat(streamedEvent.Kline.Close, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		high, err := strconv.ParseFloat(streamedEvent.Kline.High, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		low, err := strconv.ParseFloat(streamedEvent.Kline.Low, 64)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if streamedCandle == (Candle{}) {
+			streamedCandle = Candle{Open: open, Close: close, High: high, Low: low}
+		}
+		if streamedCandle.Open != open {
+
+			if actualPriceCounter < num_item || !firstIteration {
+				actualPriceList = append(actualPriceList, streamedCandle)
+				actualPriceCounter++
+			} else if pastPriceCounter < num_item || !firstIteration {
+				pastPriceList = append(pastPriceList, actualPriceList[actualPriceCounter-num_item])
+				actualPriceList[actualPriceCounter-num_item] = streamedCandle
+				actualPriceCounter++
+				pastPriceCounter++
+			} else if (actualPriceCounter == num_item && pastPriceCounter == num_item) || !firstIteration {
+				if firstIteration {
+					firstIteration = false
+				} else if actualPriceCounter == num_item {
+					actualPriceCounter = actualPriceCounter - num_item
+				} else if pastPriceCounter == num_item {
+					pastPriceCounter = pastPriceCounter - num_item
+				}
+				pastPriceList[pastPriceCounter] = actualPriceList[pastPriceCounter]
+				actualPriceList[actualPriceCounter] = streamedCandle
+				actualPriceCounter++
+				pastPriceCounter++
+			} else {
+				actualPriceCounter = num_item
+				pastPriceCounter = 0
+			}
+			priceMeter = [][]Candle{actualPriceList, pastPriceList}
+			streamedCoin.PriceMeter = priceMeter
+		}
+		if len(streamedCoin.PriceMeter) > 2 {
+			coinChannel <- streamedCoin
+		}
+		streamedCandle = Candle{Open: open, Close: close, High: high, Low: low}
+		fmt.Printf("%s\n\r%.2f\n\r%v\n\r", streamedCoin.Symbol, streamedCoin.ActualPrice, streamedCoin.PriceMeter)
 	}
 }
 
@@ -294,7 +388,7 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 			fmt.Println(err)
 			return
 		} else {
-			streamedPrice := Price{open: a}
+			streamedPrice := Price{Open: a}
 			if streamedPrice != streamedCoin.ActualMeter.actual1m[actualPriceCounter] {
 				if actualPriceCounter == 17 {
 					firstIteration = false
@@ -317,8 +411,8 @@ func assembleKline(event chan *binance.WsKlineEvent, symbol string) {
 							pastPriceCounter = 0
 							go priceMean(streamedCoin.ActualMeter.actual1m, streamedCoin.PastMeter.past1m, meanChannel)
 							means = <-meanChannel
-							streamedCoin.ActualMeter.actual1m[0].open = means[0]
-							streamedCoin.PastMeter.past1m[0].open = means[1]
+							streamedCoin.ActualMeter.actual1m[0].Open = means[0]
+							streamedCoin.PastMeter.past1m[0].Open = means[1]
 						}
 					}
 				}
@@ -338,7 +432,7 @@ func streamCandle(symbol string, time string, coinChannel chan CryptoSliceMatrix
 
 	streamedEvent := make(chan *binance.WsKlineEvent)
 	//go assembleKline(streamedEvent, symbol)
-	go sliceMatrixAssembleKline(streamedEvent, symbol, 2, coinChannel)
+	go sliceMatrixAssembleKline(streamedEvent, symbol, 17, coinChannel)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsKlineHandler := func(event *binance.WsKlineEvent) {
 		streamedEvent <- event
@@ -378,8 +472,6 @@ func ticker(client *binance.Client, symbol string) {
 // e inicia uma conexão webSocket com o servidor HTTP da Binance,
 // recebendo WsMarketStatEvent struct em formato json por 1000ms
 func streamTicker(symbol string, priceChannel chan float64) {
-
-	go handleActualPrice(symbol, priceChannel)
 	// Handler de sucesso, receberá o stream do servidor em json
 	wsMarketStatEvent := func(event *binance.WsMarketStatEvent) {
 		lastPrice, err := strconv.ParseFloat(event.LastPrice, 64)
@@ -413,18 +505,18 @@ func priceMean(actualPrice [18]Price, pastPrice [18]Price, meanChannel chan [2]f
 		pastSum    float64 = 0
 	)
 	for i := 0; i < len(actualPrice); i++ {
-		actualSum += actualPrice[i].open
+		actualSum += actualPrice[i].Open
 
 	}
 	for i := 0; i < len(pastPrice); i++ {
-		pastSum += pastPrice[i].open
+		pastSum += pastPrice[i].Open
 
 	}
 	actualMean = actualSum / float64(len(actualPrice))
-	actualPrice[0].open = actualMean
+	actualPrice[0].Open = actualMean
 
 	pastMean = pastSum / float64(len(pastPrice))
-	pastPrice[0].open = pastMean
+	pastPrice[0].Open = pastMean
 	var means = [2]float64{actualMean, pastMean}
 	meanChannel <- means
 }

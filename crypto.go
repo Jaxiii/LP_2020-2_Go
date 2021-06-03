@@ -55,22 +55,22 @@ type CryptoMatrix struct {
 }
 
 type CryptoSliceMatrix struct {
-	symbol      string
-	actualPrice float64
-	mean        [2]float64
-	priceMeter  [][]Candle
+	Symbol      string     `json:"symbol"`
+	ActualPrice float64    `json:"actualPrice"`
+	Mean        [2]float64 `json:"mean"`
+	PriceMeter  [][]Candle `json:"PriceMetter"`
 }
 
 type Price struct {
-	open  float64
-	close float64
-	mean  float64
+	Open  float64 `json:"open"`
+	Close float64 `json:"close"`
+	Mean  float64 `json:"mean"`
 }
 
 type Candle struct {
-	mean  float64
-	open  float64
-	close float64
-	high  float64
-	low   float64
+	Mean  float64 `json:"mean"`
+	Open  float64 `json:"open"`
+	Close float64 `json:"close"`
+	High  float64 `json:"high"`
+	Low   float64 `json:"low"`
 }

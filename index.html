@@ -59,8 +59,8 @@
                                                 THAn.  .d.aAAn.b.  .dHHP
                                                 ]HHHHAAUP" ~~ "YUAAHHHH[
                                                 `HHP^~"  .<pre style="display:inline; color:red;">FIRE</pre>.  "~^YHH'
-<span id="dateTimeID"></span>                           YHb    ~" "" "~    dHF
-<span>Uptime: </span><span id="upTimeID">0</span><span> seconds</span>                               "YAb..abdHHbndbndAP"
+<span id="dateTimeID"></span>                             YHb    ~" "" "~    dHF
+<span>Uptime: </span><span id="upTimeID">0</span><span> seconds</span>                   "YAb..abdHHbndbndAP"
                                                 THHAAb.  .adAHHF
                                                 "UHHHHHHHHHHU"
                                                 ]HHUUHHHHHH[
@@ -75,13 +75,17 @@
     <span style="color: rgb(47, 255, 47);">ETH/USDT -> </span>
     <span style="color: rgb(47, 255, 47);" id="priceID"></span>
   </div>
+  <div>
+    <span style="color: rgb(47, 255, 47);">Fractal -> </span>
+    <span style="color: rgb(47, 255, 47);" id="fractalID"></span>
+  </div>
   <!-- 1 -->
   <script>
     let socketDateTime = new WebSocket("ws://localhost:8080/v1/datetime");
     console.log("Attempting Connection to v1/datetime...");
 
-    //let socketUptime = new WebSocket("ws://localhost:8080/v1/uptime");
-    //console.log("Attempting Connection to v1/uptime...");
+    let socketUptime = new WebSocket("ws://localhost:8080/v1/uptime");
+    console.log("Attempting Connection to v1/uptime...");
 
     let socketPrice = new WebSocket("ws://localhost:8080/v1/price/ETHUSDT");
     console.log("Attempting Connection to v1/price...");
@@ -94,10 +98,10 @@
       socketDateTime.send("Hi From the Client - DateTime")
     };
 
-    //socketUptime.onopen = () => {
-    //  console.log("Successfully Connected to Uptime WebSocket");
-    //  socketDateTime.send("Hi From the Client - DateTime")
-    //};
+    socketUptime.onopen = () => {
+      console.log("Successfully Connected to Uptime WebSocket");
+      socketDateTime.send("Hi From the Client - DateTime")
+    };
 
     socketPrice.onopen = () => {
       console.log("Successfully Connected to Actual Price WebSocket");
@@ -113,9 +117,9 @@
       console.log("Socket DateTime Closed Connection: ", event);
     };
 
-    //socketUptime.onclose = event => {
-    //  console.log("Socket Uptime Closed Connection: ", event);
-    //};
+    socketUptime.onclose = event => {
+      console.log("Socket Uptime Closed Connection: ", event);
+    };
 
     socketPrice.onclose = event => {
       console.log("Socket Price Closed Connection: ", event);
@@ -124,13 +128,14 @@
     socketFractal.onclose = event => {
       console.log("Socket Fractal Closed Connection: ", event);
     };
+
     socketDateTime.onerror = error => {
       console.log("Socket DateTime Error: ", error);
     };
 
-    //socketUptime.onerror = error => {
-    //  console.log("Socket Uptime Error: ", error);
-    //};
+    socketUptime.onerror = error => {
+      console.log("Socket Uptime Error: ", error);
+    };
 
     socketPrice.onerror = error => {
       console.log("Socket Price Error: ", error);
@@ -145,16 +150,16 @@
       socketDateTime.addEventListener('message', function (event) {
       dateTimeID.innerHTML = event.data;
       });
-      //console.log(msg)
+      console.log(msg)
     }
 
-    //socketUptime.onmessage = function (event) {
-    //  var msg = event.data;
-    //  socketUptime.addEventListener('message', function (event) {
-    //  upTimeID.innerHTML = event.data;
-    //  });
-     //console.log(msg)
-    //}
+    socketUptime.onmessage = function (event) {
+      var msg = event.data;
+      socketUptime.addEventListener('message', function (event) {
+      upTimeID.innerHTML = event.data;
+      });
+      console.log(msg)
+    }
 
 
     socketPrice.onmessage = function (event) {
@@ -167,10 +172,10 @@
 
     socketFractal.onmessage = function (event) {
       var msg = event.data;
-      //socket.addEventListener('message', function (event) {
-      //dataID.innerHTML = event.data;
-      //});
-      //console.log(msg)
+      socketFractal.addEventListener('message', function (event) {
+      fractalID.innerHTML = event.data;
+      });
+      console.log(msg)
     }
 
   </script>
